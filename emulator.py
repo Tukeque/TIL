@@ -184,19 +184,27 @@ labels: list[int] = {}
 def validate(instr: str, instr_token: Token, sig: Signature):
     global stack_types
 
-    for pre in sig[0]: # pop
-        if len(stack_types) >= 1: # can pop
-            stack_types.pop() # todo check if its actual expected value
+    pre_sig = []
+
+    for _ in sig[0]:
+        if len(stack_types) != 0:
+            pre_sig.append(stack_types.pop())
         else:
-            validation_error(instr_token, f"tried to get a value ({pre}) from an empty stack", note=f'instruction "{instr}" has signature {pretty_sig(sig)}') # todo think of a better error? can also not be empty but rather small
+            validation_error(instr_token, "instruction signature does not match stack types", "stack is too small", note=f"instruction {instr} has signature {pretty_sig(sig)}")
+
+    if pre_sig != sig[0]:
+        validation_error(instr_token, f"instruction signature ({pretty_sig(sig)}) does not match stack types ({pretty_types(pre_sig)})", note=f"instruction {instr} has signature {pretty_sig(sig)}")
 
     for post in sig[1]: # push
         stack_types.append(post)
 
-def pretty_sig(sig: Signature):
-    return f"[{' '.join(t for t in sig[0])}] -> [{' '.join([t for t in sig[1]])}]"
+def pretty_sig(sig: Signature) -> str:
+    return f"[{' '.join([t for t in sig[0]])}] -> [{' '.join([t for t in sig[1]])}]"
 
-def parse_types(tree: Tree):
+def pretty_types(types: list[str]) -> str:
+    return f"[{' '.join([t for t in types])}]"
+
+def parse_types(tree: Tree) -> list[str]:
     return [x.value for x in tree.children]
 
 def compile_func(tree: Tree):
@@ -283,6 +291,9 @@ def compile_func(tree: Tree):
                     case "ret":
                         gen_code.append(Item(tok, instr=value))
                         validate(value, tok, (return_types, []))
+
+                        if len(stack_types) != 0:
+                            validation_error(tok, "\"ret\" instruction leaves garbage in the stack", note="clean up before you return")
 
                     case "call":
                         next_value, next_token = next(i)
@@ -410,7 +421,7 @@ while run:
                 case "local.get":
                     pc += 1
                     push(locals[-1][gen_code[pc].imm])
-                case "ret": # todo refactor this, together with new features: warnings, dead code warning, return validation for garbage in the stack
+                case "ret":
                     if scope == 0:
                         finish()
                     scope -= 1
@@ -421,9 +432,6 @@ while run:
 
                     t = []
                     for r in ret: t.append(pop())
-                    if len(stack) > stack_len:
-                        for i in range(len(stack) - stack_len):
-                            pop() # todo validate this
                     for r in t: push(r)
                     pc = ret_addr - 1
                 case "call":
