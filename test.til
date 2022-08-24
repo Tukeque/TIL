@@ -1,0 +1,18 @@
+globals (i32)
+
+fn $0 {
+    i32.const 5
+    i32.const 6
+    i32.add
+
+    call $1
+
+    ret
+}
+
+fn $1 (i32) -> (i32) {
+    local.get 0
+    i32.const 5
+    i32.add
+    ret
+}

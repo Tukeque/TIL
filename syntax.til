@@ -1,0 +1,85 @@
+globals (i32)
+
+fn $0 { // main
+    i32.const $1
+    global.set 0
+
+    global.get 0
+    icall (i32) -> (i32) // just to showcase globals and 1st class functions
+}
+
+fn $1 (i32) { // rfib using wasm control flow
+    block { // unnamed block that returns nothing
+        local.get 0
+        i32.const 1
+        i32.le_u
+        branch // if no address is specified, jumps to nearest block
+
+        // g
+        local.get 0
+        i32.const 1
+        i32.sub
+
+        local.get 0
+        i32.const 2
+        i32.sub
+
+        call $1
+        ret
+    }
+    // le
+    local.get 0
+    ret
+}
+
+fn $2 (f32) -> (f32) + (f32) { // fp_stuff
+    f32.const 3.1415
+    local.get 0
+    f32.add
+    local.set 1 // local
+    local.get 1 // unnecesary, just to showcase function locals
+    ret
+}
+
+fn $3 (f32 f32) -> (f32 f32) { // literally swap but implemented as a function
+    local.get 0
+    local.get 1
+    perm [a b] -> [b c]
+    ret
+}
+
+extern $4 (i32) = "print" // loads an external function
+//                 ^^^^^  transpiler specific: can call diferent functions depending on the compiler/emulator implementation
+
+// these functions would probably be defined in some stdlib, not externed, just done like that here to show how external functions would work
+extern $5 (i32) -> (i32) = "build_list" // have to specify amount of arguments, but not locals
+extern $6 (i32) -> (i32) = "index_list" // gets address
+
+fn $7 { // string/list thing
+    i32.const 3 call $5 // build a list of length 3
+
+    i32.const 0x61 i32.const 0 call $6 i32.store // "a"
+    i32.const 0x62 i32.const 1 call $6 i32.store // "b"
+    i32.const 0x63 i32.const 2 call $6 i32.store // "c"
+
+    ret
+}
+
+// list of features:
+
+// 1. functions:
+// defined as:
+// fn $X ARGS -> RETS + LOCALS { code }
+//     ^-||||----||||---||||||---------- "name" of the function. integer
+//       ^^^^----||||---||||||---------- arguments. list of types. optional. if only ARGS are present but not RETS, remove the ->
+//               ^^^^---||||||---------- return values. list of types. optional but if only RETS present and not ARGS, need to keep the ->, if both are not present, remove the ->
+//                      ^^^^^^---------- local variables. list of types. optional but if LOCALS is present, the + needs to be present too
+// note: ARGS, RETS and LOCALS always need to be wrapped in parentheses and types must be one of (i8, i16, i32, i64, f32, f64, h8). compilers/emulators may not support all of them
+
+// examples (code replaced with ...):
+// fn $0 { ... } // $0 is always the entry point for the program (the main function)
+// fn $1 (i32) { ... } // function that takes one i32 argument
+// fn $2 -> (f64) { ... } // function that returns one f64 value
+// fn $3 (i32 i32) -> (f32) { ... } // function that takes two i32 arguments and returns an f64 value
+// fn $4 -> (i32) + (i32) { ... } // function that has 1 local and returns one i32 value
+// fn $5 + (i32) { ... } // function that only has 1 local
